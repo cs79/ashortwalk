@@ -42,7 +42,7 @@ def find_eod_index(df):
 
 
 # figure out what all is in these things:
-day1track = parse_gpx('GAIA_Dushanbe_to_Khorog_8_4_19_5_21_57_AM.gpx')
+# day1track = parse_gpx('GAIA_Dushanbe_to_Khorog_8_4_19_5_21_57_AM.gpx')
 first5 = parse_gpx('GAIA_First_five_days_of_trek_8_8_19_8_53_03_AM.gpx')
 # no day 6; stuck at Kyrgyz settlement
 day7 = parse_gpx('GAIA__Trek_Day_7_8_14_19_8_13_29_AM.gpx')
@@ -74,6 +74,18 @@ td9 = summarize_points(day9)
 td10 = summarize_points(day10)
 td11_partial = summarize_points(day11_partial)
 
+# pack these into a dict for ease of access later:
+trekdata = {1: td1,
+            2: td2,
+            3: td3,
+            4: td4,
+            5: td5,
+            7: td7,
+            8: td8,
+            9: td9,
+            10: td10,
+            11: td11_partial}
+
 # summarize each day (distance, elevation +/-/net, elapsed time)
 def summarize_day(df):
     '''
@@ -90,14 +102,23 @@ def summarize_day(df):
     # get the elevation diffs
     df['elevation_diff'] = df['elevation'].diff(1)
     # calculate various stats for the day assuming sorted
-    to_return = {'distance': df['distance_from_start'][-1],
+    to_return = {'distance': df['dist_from_start'].values[-1],
                  'time_elapsed': pd.Timedelta(df['datetime'].values[-1] - df['datetime'].values[0]).seconds,
                  'elev_delta_GROSS_POS': sum([i for i in df['elevation_diff'] if i > 0]),
                  'elev_delta_GROSS_NEG': sum([i for i in df['elevation_diff'] if i < 0]),
                  'elev_delta_NET': df['elevation_diff'].sum()}
     return(to_return)
 
-
+daily_summaries = pd.DataFrame(columns=['distance', 'time_elapsed', 'elev_delta_GROSS_POS', 'elev_delta_GROSS_NEG', 'elev_delta_NET'])
+for i in range(1, 12):
+    if i == 6:
+        continue
+    ds = summarize_day(trekdata[i])
+    daily_summaries.loc['Day {}'.format(i), 'distance'] = ds['distance']
+    daily_summaries.loc['Day {}'.format(i), 'time_elapsed'] = ds['time_elapsed']
+    daily_summaries.loc['Day {}'.format(i), 'elev_delta_GROSS_POS'] = ds['elev_delta_GROSS_POS']
+    daily_summaries.loc['Day {}'.format(i), 'elev_delta_GROSS_NEG'] = ds['elev_delta_GROSS_NEG']
+    daily_summaries.loc['Day {}'.format(i), 'elev_delta_NET'] = ds['elev_delta_NET']
 
 # also get a "full trek" altitude profile; i guess assume even spacing of pts?
 combined = pd.DataFrame(columns=td1.columns)

@@ -57,11 +57,16 @@ candidate_eods = find_eod_index(f5df)
 # this looks weird somehow - look into this further
 # maybe use an integer index and then a time column for df format
 # when wanting to plot elevation charts, can switch to a datetime index
+# also for days 2-5, fix dist_from_start to correct for the split
 td1 = f5df.loc[0:candidate_eods[1],:]
 td2 = f5df.loc[candidate_eods[1]+1:candidate_eods[3],:]
+td2['dist_from_start'] = [i - td2.loc[td2.index[0], 'dist_from_start'] for i in td2['dist_from_start']]
 td3 = f5df.loc[candidate_eods[3]+1:candidate_eods[5],:]
+td3['dist_from_start'] = [i - td3.loc[td3.index[0], 'dist_from_start'] for i in td3['dist_from_start']]
 td4 = f5df.loc[candidate_eods[5]+1:candidate_eods[7],:]
+td4['dist_from_start'] = [i - td4.loc[td4.index[0], 'dist_from_start'] for i in td4['dist_from_start']]
 td5 = f5df.loc[candidate_eods[7]+1:f5df.index[-1],:]
+td5['dist_from_start'] = [i - td5.loc[td5.index[0], 'dist_from_start'] for i in td5['dist_from_start']]
 # no td6 - stuck at Kyrgyz settlement
 td7 = summarize_points(day7)
 td8 = summarize_points(day8)
@@ -70,5 +75,35 @@ td10 = summarize_points(day10)
 td11_partial = summarize_points(day11_partial)
 
 # summarize each day (distance, elevation +/-/net, elapsed time)
+def summarize_day(df):
+    '''
+    Given a dataframe of summarized GPX point data, calculate stats on:
+    - Distance traveled
+    - Time elapsed
+    - Gross elevation gain
+    - Gross elevation loss
+    - Net elevation change
+    '''
+    # reindex just in case
+    df.sort_values('datetime', inplace=True)
+    df.index = range(len(df))
+    # get the elevation diffs
+    df['elevation_diff'] = df['elevation'].diff(1)
+    # calculate various stats for the day assuming sorted
+    to_return = {'distance': df['distance_from_start'][-1],
+                 'time_elapsed': pd.Timedelta(df['datetime'].values[-1] - df['datetime'].values[0]).seconds,
+                 'elev_delta_GROSS_POS': sum([i for i in df['elevation_diff'] if i > 0]),
+                 'elev_delta_GROSS_NEG': sum([i for i in df['elevation_diff'] if i < 0]),
+                 'elev_delta_NET': df['elevation_diff'].sum()}
+    return(to_return)
+
+
 
 # also get a "full trek" altitude profile; i guess assume even spacing of pts?
+combined = pd.DataFrame(columns=td1.columns)
+for df in (f5df, td7, td8, td9, td10, td11_partial):
+    combined = combined.append(df)
+combined.index = range(len(combined))
+combined.to_csv('../combined_track_data.csv')
+# combined['elevation'].plot()
+# plt.show()

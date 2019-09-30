@@ -94,7 +94,8 @@ def summarize_day(df):
     - Time elapsed
     - Gross elevation gain
     - Gross elevation loss
-    - Net elevation change
+    - Net daily elevation change (end - start)
+    - Elevation spread (max - min)
     '''
     # reindex just in case
     df.sort_values('datetime', inplace=True)
@@ -106,10 +107,11 @@ def summarize_day(df):
                  'time_elapsed': pd.Timedelta(df['datetime'].values[-1] - df['datetime'].values[0]).seconds,
                  'elev_delta_GROSS_POS': sum([i for i in df['elevation_diff'] if i > 0]),
                  'elev_delta_GROSS_NEG': sum([i for i in df['elevation_diff'] if i < 0]),
-                 'elev_delta_NET': df['elevation_diff'].sum()}
+                 'elev_delta_DAILY_NET': df['elevation'].values[-1] - df['elevation'].values[0],
+                 'elev_delta_SPREAD': df['elevation'].max() - df['elevation'].min()}
     return(to_return)
 
-daily_summaries = pd.DataFrame(columns=['distance', 'time_elapsed', 'elev_delta_GROSS_POS', 'elev_delta_GROSS_NEG', 'elev_delta_NET'])
+daily_summaries = pd.DataFrame(columns=['distance', 'time_elapsed', 'elev_delta_GROSS_POS', 'elev_delta_GROSS_NEG', 'elev_delta_DAILY_NET', 'elev_delta_SPREAD'])
 for i in range(1, 12):
     if i == 6:
         continue
@@ -118,7 +120,9 @@ for i in range(1, 12):
     daily_summaries.loc['Day {}'.format(i), 'time_elapsed'] = ds['time_elapsed']
     daily_summaries.loc['Day {}'.format(i), 'elev_delta_GROSS_POS'] = ds['elev_delta_GROSS_POS']
     daily_summaries.loc['Day {}'.format(i), 'elev_delta_GROSS_NEG'] = ds['elev_delta_GROSS_NEG']
-    daily_summaries.loc['Day {}'.format(i), 'elev_delta_NET'] = ds['elev_delta_NET']
+    daily_summaries.loc['Day {}'.format(i), 'elev_delta_DAILY_NET'] = ds['elev_delta_DAILY_NET']
+    daily_summaries.loc['Day {}'.format(i), 'elev_delta_SPREAD'] = ds['elev_delta_SPREAD']
+daily_summaries.to_csv('../daily_summary_stats.csv')
 
 # also get a "full trek" altitude profile; i guess assume even spacing of pts?
 combined = pd.DataFrame(columns=td1.columns)

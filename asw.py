@@ -74,6 +74,26 @@ td9 = summarize_points(day9)
 td10 = summarize_points(day10)
 td11_partial = summarize_points(day11_partial)
 
+# NEED TO OFFSET dist_from_start FOR ALL DAYS IN COMBINED DATA
+# for each day after day 1, add tail(0) dist_from_start value from previous day
+# to all points in that day
+td1['total_dist'] = td1['dist_from_start']
+td2['total_dist'] = td2['dist_from_start'] + td1['total_dist'].values[-1]
+td3['total_dist'] = td3['dist_from_start'] + td2['total_dist'].values[-1]
+td4['total_dist'] = td4['dist_from_start'] + td3['total_dist'].values[-1]
+td5['total_dist'] = td5['dist_from_start'] + td4['total_dist'].values[-1]
+td7['total_dist'] = td7['dist_from_start'] + td5['total_dist'].values[-1]
+td8['total_dist'] = td8['dist_from_start'] + td7['total_dist'].values[-1]
+td9['total_dist'] = td9['dist_from_start'] + td8['total_dist'].values[-1]
+td10['total_dist'] = td10['dist_from_start'] + td9['total_dist'].values[-1]
+td11_partial['total_dist'] = td11_partial['dist_from_start'] + \
+                             td10['total_dist'].values[-1]
+
+combined_distance_track_data = td1
+for d in [td2, td3, td4, td5, td7, td8, td9, td10, td11_partial]:
+    combined_distance_track_data.append(d)
+combined_distance_track_data.to_csv('../combined_distance_track_data.csv')
+
 # pack these into a dict for ease of access later:
 trekdata = {1: td1,
             2: td2,
@@ -125,6 +145,7 @@ for i in range(1, 12):
 daily_summaries.to_csv('../daily_summary_stats.csv')
 
 # also get a "full trek" altitude profile; i guess assume even spacing of pts?
+# this actually is no good because the distances for non-f5df dfs are not cumulative
 combined = pd.DataFrame(columns=td1.columns)
 for df in (f5df, td7, td8, td9, td10, td11_partial):
     combined = combined.append(df)
@@ -132,3 +153,80 @@ combined.index = range(len(combined))
 combined.to_csv('../combined_track_data.csv')
 # combined['elevation'].plot()
 # plt.show()
+
+# additional modifications to the full trek file
+df = pd.read_csv('combined_distance_track_data.csv', index_col=0)
+df['day'] = [pd.to_datetime(df['datetime'].values[i]).day for i in range(len(df))]
+df2 = pd.DataFrame()
+days = list(set(df['day']))
+days.sort()
+for d in days:
+    subset = df[df['day'] == d]
+    dist = subset['total_dist'] - subset['total_dist'].values[0] # offset for day
+    df2 = df2.append(dist.to_frame())
+df2.index = df.index
+df['daily_dist'] = df2['total_dist']
+df.index = range(len(df))
+df.to_csv('combined_distance_track_data_w_daily_distance.csv')
+# km by day
+kmpd = df.groupby('day')['daily_dist'].max() / 1000
+# miles by day
+mpd = kmpd * 0.621371
+# time by day
+times = pd.DataFrame()
+for d in days:
+    subset = df[df['day'] == d]
+    timediff = pd.to_datetime(subset['datetime'].values[-1]) - \
+               pd.to_datetime(subset['datetime'].values[0])
+    times.loc[d, 'elapsed_time'] = timediff
+
+# attempt to find correct date ends
+df['dt'] = [pd.to_datetime(i) for i in df['datetime']]
+df['td'] = df['dt'].diff(1)
+
+df3 = df.copy()
+df3.set_index('dt', inplace=True)
+df3.index = df3.index.tz_convert('Asia/Kabul')
+df3.drop(['day', 'daily_dist', 'td'], axis=1, inplace=True)
+df3['day'] = [i.day for i in df3.index]
+df3['dt'] = df3.index
+df3['td'] = df3['dt'].diff(1)
+df3['td'] = [i.seconds for i in df3['td']]
+df3.index = range(len(df3))
+# manual day fix
+df3.loc[0:4130, 'corrected_day'] = 1
+df3.loc[4131:8045, 'corrected_day'] = 2
+df3.loc[8046:14337, 'corrected_day'] = 3
+df3.loc[14338:16165, 'corrected_day'] = 4
+df3.loc[16166:20690, 'corrected_day'] = 5
+df3.loc[20691:24219, 'corrected_day'] = 7
+df3.loc[24220:27514, 'corrected_day'] = 8
+df3.loc[27515:33030, 'corrected_day'] = 9
+df3.loc[33031:35619, 'corrected_day'] = 10
+df3.loc[35620:39213, 'corrected_day'] = 11
+
+df4 = pd.DataFrame()
+days2 = list(set(df3['corrected_day']))
+days2.sort()
+for d in days2:
+    subset = df3[df3['corrected_day'] == d]
+    dist = subset['total_dist'] - subset['total_dist'].values[0] # offset for day
+    df4 = df4.append(dist.to_frame())
+df4.index = df3.index
+df3['daily_dist'] = df4['total_dist']
+df3.index = range(len(df3))
+#df3.to_csv('combined_distance_track_data_w_daily_distance_CORRECTED_DAYS.csv')
+# km by day
+kmpd = df3.groupby('corrected_day')['daily_dist'].max() / 1000
+# miles by day
+mpd = kmpd * 0.621371
+# time by day
+times = pd.DataFrame()
+for d in days2:
+    subset = df3[df3['corrected_day'] == d]
+    timediff = subset['dt'].values[-1] - subset['dt'].values[0]
+    times.loc[d, 'elapsed_time'] = timediff
+
+kmpd.to_csv('km_per_day_CORRECTED.csv')
+mpd.to_csv('miles_per_day_CORRECTED.csv')
+times.to_csv('times_per_day_CORRECTED.csv')

@@ -230,3 +230,26 @@ for d in days2:
 kmpd.to_csv('km_per_day_CORRECTED.csv')
 mpd.to_csv('miles_per_day_CORRECTED.csv')
 times.to_csv('times_per_day_CORRECTED.csv')
+
+# additional stats for book; assuming df is corrected full track data
+elevation_gain = max(df['elevation']) - df.loc[0, 'elevation']
+elevation_delta = max(df['elevation']) - min(df['elevation'])
+daily_elevation_deltas = df.groupby('corrected_day')['elevation'].max() - \
+                         df.groupby('corrected_day')['elevation'].min()
+daily_elevation_gains = []
+daily_elevation_losses = []
+for d in set(df['corrected_day']):
+    subset = df[df['corrected_day'] == d]
+    delta_g = subset['elevation'].max() - subset.loc[subset.index.values[0], 'elevation']
+    delta_l = subset.loc[subset.index.values[0], 'elevation'] - subset['elevation'].min()
+    daily_elevation_gains.append(delta_g)
+    daily_elevation_losses.append(delta_l)
+max_daily_elevation_delta = daily_elevation_deltas.max()
+max_daily_elevation_gain = max(daily_elevation_gains)
+max_daily_elevation_loss = max(daily_elevation_losses)
+'''
+Other stats:
+Total waypoints logged manually: 98
+"River crossing" waypoints logged: 21
+"River crossing by animal" waypoints logged: 5
+'''
